@@ -46,7 +46,7 @@ export class cTraderX {
         this.debug = !!config?.debug;
 
         this.logger = config?.logger ?? new Logger();
-        this.autoReconnect = config.autoReconnect ?? true;
+        this.autoReconnect = config?.autoReconnect ?? true;
 
         this.credentials = {
             clientId: config?.clientId ?? Config.SPOTWARE_CLIENT_ID,
@@ -77,10 +77,12 @@ export class cTraderX {
 
     disconnect() {
         this.dispose();
-        this.ordersManager.dispose();
+        // ordersManager is only initialized after a successful connect(),
+        // so guard against calling dispose() on an undefined instance.
+        this.ordersManager?.dispose();
 
         this.isConnected = false;
-        this.connection.close();
+        this.connection?.close();
         this.connection = null;
     }
 
@@ -182,6 +184,10 @@ export class cTraderX {
     }
 
     private dispose() {
+        // connection is set to null at the end of disconnect(), so guard
+        // against a double-dispose or dispose after connection teardown.
+        if (!this.connection) return;
+
         this.subscriptionsIds
             .values()
             .forEach((subscriptionId) =>

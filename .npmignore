@@ -6,3 +6,4 @@ src/examples/**/*
 dist/examples/**/*
 jest.config.js
 tsconfig.json
+TODO.md

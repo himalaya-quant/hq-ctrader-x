@@ -1,3 +1,9 @@
+# 0.0.21
+
+- Readme update
+- Tests update
+- Minor bug fixes
+
 # 0.0.20
 
 Exposes lots utils

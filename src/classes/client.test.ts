@@ -1,17 +1,21 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { Config } from '../config/config';
 import { ConnectionError } from './errors/connection.error';
+import { ClientNotConnectedError } from './errors/client-not-connected.error';
 import { cTraderX } from './client';
 import { IConfiguration } from './models/client-configuration.model';
 
 describe('cTraderX Client - Integration Tests', () => {
     let client: cTraderX;
 
-    describe('Constructor and Configuration', () => {
-        afterEach(async () => {
-            client.disconnect();
-        });
+    // Shared safe teardown: disconnect() is now null-safe in the source,
+    // but we still use optional chaining for robustness.
+    afterEach(() => {
+        client?.disconnect();
+        client = undefined;
+    });
 
+    describe('Constructor and Configuration', () => {
         it('should create client with default demo configuration', () => {
             client = new cTraderX();
             expect(client).toBeDefined();
@@ -53,7 +57,7 @@ describe('cTraderX Client - Integration Tests', () => {
 
             await client.connect();
 
-            // La seconda chiamata non dovrebbe fare nulla
+            // Second call should be a no-op
             await expect(client.connect()).resolves.not.toThrow();
         }, 30000);
 
@@ -69,18 +73,69 @@ describe('cTraderX Client - Integration Tests', () => {
         }, 30000);
     });
 
+    describe('Managers - Access Control', () => {
+        it('should throw ClientNotConnectedError when accessing orders before connect', () => {
+            client = new cTraderX();
+            expect(() => client.orders).toThrow(ClientNotConnectedError);
+        });
+
+        it('should throw ClientNotConnectedError when accessing symbols before connect', () => {
+            client = new cTraderX();
+            expect(() => client.symbols).toThrow(ClientNotConnectedError);
+        });
+
+        it('should throw ClientNotConnectedError when accessing symbolsUpdates before connect', () => {
+            client = new cTraderX();
+            expect(() => client.symbolsUpdates).toThrow(
+                ClientNotConnectedError,
+            );
+        });
+
+        it('should expose orders manager after connect', async () => {
+            client = new cTraderX({
+                clientId: Config.SPOTWARE_CLIENT_ID,
+                clientSecret: Config.SPOTWARE_CLIENT_SECRET,
+                accessToken: Config.SPOTWARE_ACCESS_TOKEN,
+                ctidTraderAccountId: Config.SPOTWARE_CTID_TRADER_ACCOUNT_ID,
+            });
+
+            await client.connect();
+            expect(client.orders).toBeDefined();
+        }, 30000);
+
+        it('should expose symbols manager after connect', async () => {
+            client = new cTraderX({
+                clientId: Config.SPOTWARE_CLIENT_ID,
+                clientSecret: Config.SPOTWARE_CLIENT_SECRET,
+                accessToken: Config.SPOTWARE_ACCESS_TOKEN,
+                ctidTraderAccountId: Config.SPOTWARE_CTID_TRADER_ACCOUNT_ID,
+            });
+
+            await client.connect();
+            expect(client.symbols).toBeDefined();
+        }, 30000);
+
+        it('should expose symbolsUpdates manager after connect', async () => {
+            client = new cTraderX({
+                clientId: Config.SPOTWARE_CLIENT_ID,
+                clientSecret: Config.SPOTWARE_CLIENT_SECRET,
+                accessToken: Config.SPOTWARE_ACCESS_TOKEN,
+                ctidTraderAccountId: Config.SPOTWARE_CTID_TRADER_ACCOUNT_ID,
+            });
+
+            await client.connect();
+            expect(client.symbolsUpdates).toBeDefined();
+        }, 30000);
+    });
+
     describe('Host Selection', () => {
         it('should use demo host by default', () => {
             client = new cTraderX();
-            // Non possiamo testare direttamente host perché è privato,
-            // ma possiamo verificare che il client sia stato creato
             expect(client).toBeDefined();
         });
 
         it('should use live host when live flag is true', () => {
-            client = new cTraderX({
-                live: true,
-            });
+            client = new cTraderX({ live: true });
             expect(client).toBeDefined();
         });
     });
@@ -95,6 +150,21 @@ describe('cTraderX Client - Integration Tests', () => {
             });
 
             await expect(client.connect()).resolves.not.toThrow();
+        }, 30000);
+
+        it('should allow disconnect after a successful connection', async () => {
+            client = new cTraderX({
+                clientId: Config.SPOTWARE_CLIENT_ID,
+                clientSecret: Config.SPOTWARE_CLIENT_SECRET,
+                accessToken: Config.SPOTWARE_ACCESS_TOKEN,
+                ctidTraderAccountId: Config.SPOTWARE_CTID_TRADER_ACCOUNT_ID,
+            });
+
+            await client.connect();
+
+            // disconnect() sets this.connection = null, so the shared
+            // afterEach client?.disconnect() will be a safe no-op.
+            expect(() => client.disconnect()).not.toThrow();
         }, 30000);
     });
 });

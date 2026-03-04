@@ -1,13 +1,13 @@
 {
     "name": "@himalaya-quant/ctrader-x",
-    "version": "0.0.20",
+    "version": "0.0.21",
     "description": "A typescript cTrader OpenAPI implementation",
     "main": "dist/index.js",
     "scripts": {
         "build": "tsc",
         "build:watch": "tsc --watch",
         "start": "tsc && node dist/_main.js",
-        "start:example": "tsc && node dist/examples/get-symbols-list.example.js",
+        "start:example": "tsc && node dist/examples/get-symbols-bars.example.js",
         "test": "rm -rf dist && vitest",
         "test:ui": "vitest --ui",
         "test:run": "vitest run",

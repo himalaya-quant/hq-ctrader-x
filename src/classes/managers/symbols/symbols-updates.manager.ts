@@ -61,7 +61,10 @@ export class SymbolsUpdatesManager extends BaseManager {
         SubscriptionsManager.liveBarsSubscriptions$.pipe(
             tap((values) =>
                 values.forEach(({ symbolId }, idx) => {
-                    this.liveBarsSubsSymbolsToSubscribersMap.set(symbolId, idx);
+                    this.liveBarsSubsSymbolsToSubscribersMap.set(
+                        +symbolId,
+                        idx,
+                    );
                 }),
             ),
         );
