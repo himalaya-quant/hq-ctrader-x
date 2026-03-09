@@ -35,8 +35,10 @@ export class cTraderX {
     private symbolsUpdatesManager: SymbolsUpdatesManager;
 
     private isConnected = false;
+    private intentionalDisconnect = false;
     private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
     private subscriptionsIds = new Map<string, string>();
+    private readonly reconnectIntervalMs: number;
 
     constructor(config?: IConfiguration) {
         this.host = config?.live
@@ -47,6 +49,7 @@ export class cTraderX {
 
         this.logger = config?.logger ?? new Logger();
         this.autoReconnect = config?.autoReconnect ?? true;
+        this.reconnectIntervalMs = config?.reconnectIntervalMs ?? 5_000;
 
         this.credentials = {
             clientId: config?.clientId ?? Config.SPOTWARE_CLIENT_ID,
@@ -76,6 +79,7 @@ export class cTraderX {
     }
 
     disconnect() {
+        this.intentionalDisconnect = true;
         this.stopHeartbeat();
         this.dispose();
         // ordersManager is only initialized after a successful connect(),
@@ -90,6 +94,7 @@ export class cTraderX {
     async connect(): Promise<void> {
         if (this.isConnected) return;
 
+        this.intentionalDisconnect = false;
         this.createConnection();
         this.subscribeDisconnectionEvents();
         this.initializeCoreManagers();
@@ -99,7 +104,7 @@ export class cTraderX {
             await this.authManager.authenticateApp();
             await this.authManager.authenticateUser();
 
-            this.initializeSecondaryManagers();
+            await this.initializeSecondaryManagers();
 
             this.isConnected = true;
 
@@ -107,6 +112,11 @@ export class cTraderX {
         } catch (e) {
             const message = cTraderXError.getMessageError(e);
             this.logger.error(`Error opening connection: ${message}`);
+            // Clean up the partially-opened connection so the next attempt
+            // starts from a clean state.
+            this.dispose();
+            this.connection?.close();
+            this.connection = null;
             throw new ConnectionError(message);
         }
     }
@@ -193,6 +203,10 @@ export class cTraderX {
                     this.restartClient(
                         event.descriptor?.reason ??
                             'ProtoOAClientDisconnectEvent',
+                    ).catch((e) =>
+                        this.logger.error(
+                            `Restart failed: ${cTraderXError.getMessageError(e)}`,
+                        ),
                     ),
             ),
         );
@@ -200,7 +214,11 @@ export class cTraderX {
         this.subscriptionsIds.set(
             'account_disconnect',
             this.connection.on(ProtoOAAccountDisconnectEvent.name, () =>
-                this.restartClient('ProtoOAAccountDisconnectEvent'),
+                this.restartClient('ProtoOAAccountDisconnectEvent').catch((e) =>
+                    this.logger.error(
+                        `Restart failed: ${cTraderXError.getMessageError(e)}`,
+                    ),
+                ),
             ),
         );
 
@@ -208,7 +226,11 @@ export class cTraderX {
         this.subscriptionsIds.set(
             'socket_close',
             this.connection.on('close', () =>
-                this.restartClient('Socket closed'),
+                this.restartClient('Socket closed').catch((e) =>
+                    this.logger.error(
+                        `Restart failed: ${cTraderXError.getMessageError(e)}`,
+                    ),
+                ),
             ),
         );
 
@@ -218,16 +240,25 @@ export class cTraderX {
             this.connection.on('error', (event: CTraderLayerEvent) =>
                 this.restartClient(
                     `Socket error: ${event.descriptor?.error?.message ?? 'unknown'}`,
+                ).catch((e) =>
+                    this.logger.error(
+                        `Restart failed: ${cTraderXError.getMessageError(e)}`,
+                    ),
                 ),
             ),
         );
 
-        // Dead man's switch fired — no message received for 30s
+        // Dead man's switch fired — no message received for 30s.
+        // restartClient calls disconnect() which already closes the socket.
         this.subscriptionsIds.set(
             'socket_stale',
             this.connection.on('stale', () =>
                 this.restartClient(
                     'Connection stale: no message received for 30s',
+                ).catch((e) =>
+                    this.logger.error(
+                        `Restart failed: ${cTraderXError.getMessageError(e)}`,
+                    ),
                 ),
             ),
         );
@@ -243,14 +274,36 @@ export class cTraderX {
         );
 
         this.disconnect();
+        this.intentionalDisconnect = false;
 
         if (!this.autoReconnect) {
             this.logger.warn(`Auto reconnect is disabled, not reconnecting.`);
             return;
         }
 
-        await Sleep.s(1);
+        let attempt = 0;
 
-        await this.connect();
+        while (!this.isConnected && !this.intentionalDisconnect) {
+            attempt++;
+            this.logger.warn(
+                `Reconnection attempt ${attempt}, waiting ${this.reconnectIntervalMs}ms...`,
+            );
+
+            await Sleep.ms(this.reconnectIntervalMs);
+
+            try {
+                await this.connect();
+            } catch (e) {
+                this.logger.error(
+                    `Reconnection attempt ${attempt} failed: ${cTraderXError.getMessageError(e)}`,
+                );
+                // connect() throws but also leaves the connection in a clean
+                // disconnected state, so the loop continues.
+            }
+        }
+
+        this.logger.warn(
+            `Reconnected successfully after ${attempt} attempt(s).`,
+        );
     }
 }

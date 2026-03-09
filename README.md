@@ -54,20 +54,22 @@ const client = new cTraderX({
     ctidTraderAccountId: 123456,
     debug: false, // Enable verbose debug logs
     autoReconnect: true, // Auto-reconnect on server disconnection
+    reconnectIntervalMs: 5000, // Wait 5s between reconnection attempts
     logger: customLogger, // Custom ILogger implementation
 });
 ```
 
-| Option                | Type      | Default  | Description                                                           |
-| --------------------- | --------- | -------- | --------------------------------------------------------------------- |
-| `live`                | `boolean` | `false`  | Connects to `live.ctraderapi.com` instead of `demo.ctraderapi.com`    |
-| `clientId`            | `string`  | env      | Spotware application client ID                                        |
-| `clientSecret`        | `string`  | env      | Spotware application client secret                                    |
-| `accessToken`         | `string`  | env      | OAuth access token                                                    |
-| `ctidTraderAccountId` | `number`  | env      | The trader account ID to operate on                                   |
-| `debug`               | `boolean` | `false`  | Emits additional debug-level log entries                              |
-| `autoReconnect`       | `boolean` | `true`   | Restarts the client if the server goes silent for more than 5 minutes |
-| `logger`              | `ILogger` | built-in | Custom logger (see [Logging](#logging))                               |
+| Option                | Type      | Default  | Description                                                        |
+| --------------------- | --------- | -------- | ------------------------------------------------------------------ |
+| `live`                | `boolean` | `false`  | Connects to `live.ctraderapi.com` instead of `demo.ctraderapi.com` |
+| `clientId`            | `string`  | env      | Spotware application client ID                                     |
+| `clientSecret`        | `string`  | env      | Spotware application client secret                                 |
+| `accessToken`         | `string`  | env      | OAuth access token                                                 |
+| `ctidTraderAccountId` | `number`  | env      | The trader account ID to operate on                                |
+| `debug`               | `boolean` | `false`  | Emits additional debug-level log entries                           |
+| `autoReconnect`       | `boolean` | `true`   | Automatically reconnects if the connection is lost                 |
+| `reconnectIntervalMs` | `number`  | `5000`   | Fixed wait time (ms) between reconnection attempts                 |
+| `logger`              | `ILogger` | built-in | Custom logger (see [Logging](#logging))                            |
 
 ---
 
@@ -97,7 +99,9 @@ client.disconnect(); // Closes the connection and disposes all listeners
 
 **Calling `disconnect()` before `connect()`** is safe and has no effect.
 
-**Auto-reconnect** is enabled by default. The client tracks server-side heartbeats and, if none are received for 5 consecutive minutes, it disconnects and reconnects automatically. Set `autoReconnect: false` to disable this behaviour — the client will log a warning instead but will not restart.
+**Auto-reconnect** is enabled by default. The client uses a dead man's switch that monitors server silence — if no message is received for 30 seconds (the server normally sends heartbeats every ~15 seconds), the connection is considered stale and a reconnect is triggered automatically. On reconnect failure (e.g. network still down), the client retries at a fixed interval (`reconnectIntervalMs`, default 5s) until the connection is restored. Set `autoReconnect: false` to disable this behaviour entirely.
+
+**Calling `disconnect()` during a reconnect loop** stops the loop immediately. No further reconnection attempts are made.
 
 > ⚠️ Accessing `client.orders`, `client.symbols`, or `client.symbolsUpdates` before calling `connect()` throws a `ClientNotConnectedError`.
 
@@ -399,6 +403,8 @@ The following are intentional behaviours, not bugs.
 **`getSymbolsList()` is not a lightweight call.** Internally it fetches the symbol list and then enriches each entry with full symbol details in a second request. Avoid calling it in hot paths or on every reconnect.
 
 **Order events are globally shared.** `subscribeOrdersEvents()` returns a reference to a single `Subject`. All `.subscribe()` calls on any instance share the same event stream. This means events are not scoped to a single `client` instance if you create more than one — all instances dispatch to the same subject.
+
+**`autoReconnect` detects stale connections via a dead man's switch.** The underlying `ctrader-layer` monitors server silence at the socket level. If no message (including heartbeats) is received for 30 seconds, the connection is declared stale and a reconnect is triggered. This catches silent network drops — cases where the TCP connection dies without a FIN packet — which a pure heartbeat-based approach would miss.
 
 **`autoReconnect` restores live bar subscriptions automatically.** On reconnect, all active `subscribeLiveTrendBars` subscriptions are re-established with the server without requiring any action from the caller.
 

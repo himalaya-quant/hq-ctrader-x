@@ -1,5 +1,12 @@
 # 0.0.21
 
+- Updated cTraderLayer
+- Removes patches around heart beat silence detection, now cTraderLayer handles it internally
+- Listens to new connection events (error, close, stale, etc), and issues automatic restarts preserving existing subscriptions, and re subscribing them when successfully reconnected.
+- Automatic reconnection system with 5s delay between attempts
+
+# 0.0.21
+
 - Readme update
 - Tests update
 - Minor bug fixes

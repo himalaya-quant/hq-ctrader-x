@@ -50,4 +50,13 @@ export interface IConfiguration {
      * @default true
      */
     autoReconnect?: boolean;
+
+    /**
+     * How long to wait (ms) between reconnection attempts when the connection
+     * is lost. Applies both to the initial delay before the first retry and to
+     * each subsequent retry if the reconnect itself fails.
+     *
+     * @default 5000
+     */
+    reconnectIntervalMs?: number;
 }
