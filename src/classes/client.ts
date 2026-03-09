@@ -35,7 +35,7 @@ export class cTraderX {
     private symbolsUpdatesManager: SymbolsUpdatesManager;
 
     private isConnected = false;
-    private lastServerHeartbeatTime: number = null;
+    private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
     private subscriptionsIds = new Map<string, string>();
 
     constructor(config?: IConfiguration) {
@@ -76,6 +76,7 @@ export class cTraderX {
     }
 
     disconnect() {
+        this.stopHeartbeat();
         this.dispose();
         // ordersManager is only initialized after a successful connect(),
         // so guard against calling dispose() on an undefined instance.
@@ -102,7 +103,7 @@ export class cTraderX {
 
             this.isConnected = true;
 
-            this.sendHeartbeat();
+            this.scheduleHeartbeat();
         } catch (e) {
             const message = cTraderXError.getMessageError(e);
             this.logger.error(`Error opening connection: ${message}`);
@@ -110,38 +111,25 @@ export class cTraderX {
         }
     }
 
-    private sendHeartbeat() {
-        if (!this.isConnected) return;
+    private scheduleHeartbeat() {
+        this.heartbeatTimer = setTimeout(() => {
+            if (!this.isConnected) return;
 
-        if (this.lastServerHeartbeatTime !== null) {
-            const maxServerSilenceTime = 60_000 * 5; // 5mins
+            this.connection.sendHeartbeat();
 
-            const lastServerHeartbeatSince =
-                Date.now() - this.lastServerHeartbeatTime;
-
-            const clientShouldBeRestarted =
-                lastServerHeartbeatSince >= maxServerSilenceTime;
-
-            if (clientShouldBeRestarted && this.autoReconnect) {
-                this.lastServerHeartbeatTime = null;
-                this.restartClient('Server silent for too long');
-                return;
-            } else if (clientShouldBeRestarted && !this.autoReconnect) {
-                this.logger.warn(
-                    `Detected abnormal server inactivity time, but auto reconnect is disabled`,
-                );
+            if (this.debug) {
+                this.logger.debug(`Heartbeat event sent`);
             }
+
+            this.scheduleHeartbeat();
+        }, 1000 * 10);
+    }
+
+    private stopHeartbeat() {
+        if (this.heartbeatTimer !== null) {
+            clearTimeout(this.heartbeatTimer);
+            this.heartbeatTimer = null;
         }
-
-        this.connection.sendHeartbeat();
-
-        if (this.debug) {
-            this.logger.debug(`Heartbeat event sent`);
-        }
-
-        setTimeout(() => {
-            this.sendHeartbeat();
-        }, 1000 * 5);
     }
 
     private ensureConnectedOrThrow() {
@@ -193,6 +181,7 @@ export class cTraderX {
             .forEach((subscriptionId) =>
                 this.connection.removeEventListener(subscriptionId),
             );
+        this.subscriptionsIds.clear();
     }
 
     private subscribeDisconnectionEvents() {
@@ -200,41 +189,65 @@ export class cTraderX {
             'client_disconnect',
             this.connection.on(
                 ProtoOAClientDisconnectEvent.name,
-                this.restartClient.bind(this),
+                (event: CTraderLayerEvent) =>
+                    this.restartClient(
+                        event.descriptor?.reason ??
+                            'ProtoOAClientDisconnectEvent',
+                    ),
             ),
         );
 
         this.subscriptionsIds.set(
             'account_disconnect',
-            this.connection.on(
-                ProtoOAAccountDisconnectEvent.name,
-                this.restartClient.bind(this),
+            this.connection.on(ProtoOAAccountDisconnectEvent.name, () =>
+                this.restartClient('ProtoOAAccountDisconnectEvent'),
             ),
         );
 
+        // Socket closed cleanly (server-side FIN)
         this.subscriptionsIds.set(
-            'server_heartbeat',
-            this.connection.on(
-                'ProtoHeartbeatEvent',
-                () => (this.lastServerHeartbeatTime = Date.now()),
+            'socket_close',
+            this.connection.on('close', () =>
+                this.restartClient('Socket closed'),
+            ),
+        );
+
+        // Socket error (TLS error, network error, etc.)
+        this.subscriptionsIds.set(
+            'socket_error',
+            this.connection.on('error', (event: CTraderLayerEvent) =>
+                this.restartClient(
+                    `Socket error: ${event.descriptor?.error?.message ?? 'unknown'}`,
+                ),
+            ),
+        );
+
+        // Dead man's switch fired — no message received for 30s
+        this.subscriptionsIds.set(
+            'socket_stale',
+            this.connection.on('stale', () =>
+                this.restartClient(
+                    'Connection stale: no message received for 30s',
+                ),
             ),
         );
     }
 
-    private async restartClient(reason: string);
-    private async restartClient(event: CTraderLayerEvent | string) {
-        let reason: string;
-        if (typeof event === 'string') {
-            reason = event;
-        } else {
-            reason = event.descriptor.reason;
-        }
+    private async restartClient(reason: string) {
+        // Guard: if already disconnected (e.g. two events fired in quick
+        // succession) do not attempt a double reconnect.
+        if (!this.isConnected) return;
 
         this.logger.warn(
-            `Issuing automatic restart due to disconnection. ${reason}`,
+            `Issuing automatic restart due to disconnection. Reason: ${reason}`,
         );
 
         this.disconnect();
+
+        if (!this.autoReconnect) {
+            this.logger.warn(`Auto reconnect is disabled, not reconnecting.`);
+            return;
+        }
 
         await Sleep.s(1);
 

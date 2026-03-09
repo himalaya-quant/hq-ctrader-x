@@ -11,14 +11,14 @@
         "test": "rm -rf dist && vitest",
         "test:ui": "vitest --ui",
         "test:run": "vitest run",
-        "test:cov": "vitest run --coverage"
+        "test:cov": "vitest run --coverage",
+        "link:hq": "npm link @himalaya-quant/ctrader-layer"
     },
     "repository": {
         "type": "git",
         "url": "git+https://github.com/himalaya-quant/ctrader-x.git"
     },
     "dependencies": {
-        "@himalaya-quant/ctrader-layer": "^2.2.1",
         "dotenv": "^17.2.4",
         "protobufjs": "^7.4.0",
         "rxjs": "^7.8.2"
