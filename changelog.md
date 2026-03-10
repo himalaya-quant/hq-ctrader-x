@@ -1,4 +1,9 @@
-# 0.0.21
+# 0.0.23
+
+- Fixed internal subscriptions management and racing conditions when concurrent
+  subscriptions on the same symbol are fired at the same time.
+
+# 0.0.22
 
 - Updated cTraderLayer
 - Removes patches around heart beat silence detection, now cTraderLayer handles it internally

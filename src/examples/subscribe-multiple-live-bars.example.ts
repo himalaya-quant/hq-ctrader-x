@@ -13,7 +13,7 @@ import { ProtoOATrendbarPeriod } from '../classes/managers/symbols/proto/models/
             // symbolId: 1, // EURUSD
             symbolId: 10026, // BTCUSD
         })
-        .pipe(tap((event) => console.log(`Sub 1: ${event}`)))
+        .pipe(tap((event) => console.log(`Sub 1: ${event.period}`)))
         .subscribe();
 
     client.symbolsUpdates
@@ -22,6 +22,6 @@ import { ProtoOATrendbarPeriod } from '../classes/managers/symbols/proto/models/
             // symbolId: 1, // EURUSD
             symbolId: 10026, // BTCUSD
         })
-        .pipe(tap((event) => console.log(`Sub 2: ${event}`)))
+        .pipe(tap((event) => console.log(`Sub 2: ${event.period}`)))
         .subscribe();
 })();
