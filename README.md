@@ -410,13 +410,6 @@ The following are intentional behaviours, not bugs.
 
 **`disconnect()` is idempotent.** Calling it multiple times, or calling it on a client that was never successfully connected, does not throw.
 
-## TODO:
-
-- Remove **globally shared** events and bind them to the proper instance. At the moment this is done like so, to have a non disruptive
-  reconnection behavior. Meaning that the alive subscriptions, won't be closed or terminated in case of an automatic reconnection event.
-  To fix this debt, we need to move the static subscription form within the specific manager, on the main client. So that only the managers
-  gets re instantiated, and the main client preserves any alive subscriptions, by passing the source back down to the re-spawned managers.
-
 ---
 
 <p align="center">Developed with ❤️ by <a href="https://github.com/himalaya-quant">Caius Citiriga</a></p>

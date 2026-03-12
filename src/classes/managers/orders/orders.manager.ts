@@ -44,16 +44,16 @@ import { ProtoOAGetPositionUnrealizedPnLRes } from './proto/messages/ProtoOAGetP
 
 type BaseProto = 'payloadType' | 'ctidTraderAccountId';
 
-class OrdersEventsDispatcher {
-    private static readonly ordersUpdates$ = new Subject<
+export class OrdersEventsDispatcher {
+    private readonly ordersUpdates$ = new Subject<
         OrderEvent | OrderErrorEvent
     >();
 
-    static dispatch(event: OrderEvent | OrderErrorEvent) {
+    dispatch(event: OrderEvent | OrderErrorEvent) {
         this.ordersUpdates$.next(event);
     }
 
-    static subscribeEvents() {
+    subscribeEvents() {
         return this.ordersUpdates$.asObservable();
     }
 }
@@ -65,6 +65,7 @@ export class OrdersManager extends BaseManager {
         protected readonly credentials: ICredentials,
         protected readonly connection: CTraderConnection,
         protected readonly logger: ILogger,
+        protected readonly orderEventsDispatcher: OrdersEventsDispatcher,
     ) {
         super();
         this.openEventsListeners();
@@ -81,7 +82,7 @@ export class OrdersManager extends BaseManager {
     }
 
     subscribeOrdersEvents() {
-        return OrdersEventsDispatcher.subscribeEvents();
+        return this.orderEventsDispatcher.subscribeEvents();
     }
 
     /**
@@ -277,7 +278,7 @@ export class OrdersManager extends BaseManager {
             this.logger.debug(
                 `Order ${order.clientOrderId || order.orderId} accepted`,
             );
-            OrdersEventsDispatcher.dispatch(
+            this.orderEventsDispatcher.dispatch(
                 new OrderAcceptedEvent(order, deal),
             );
         }
@@ -286,14 +287,16 @@ export class OrdersManager extends BaseManager {
             this.logger.debug(
                 `Order ${order.clientOrderId || order.orderId} filled`,
             );
-            OrdersEventsDispatcher.dispatch(new OrderFilledEvent(order, deal));
+            this.orderEventsDispatcher.dispatch(
+                new OrderFilledEvent(order, deal),
+            );
         }
 
         if (isCancelledOrder(order)) {
             this.logger.debug(
                 `Order ${order.clientOrderId || order.orderId} cancelled`,
             );
-            OrdersEventsDispatcher.dispatch(
+            this.orderEventsDispatcher.dispatch(
                 new OrderCancelledEvent(order, deal),
             );
         }
@@ -302,14 +305,16 @@ export class OrdersManager extends BaseManager {
             this.logger.debug(
                 `Order ${order.clientOrderId || order.orderId} expired`,
             );
-            OrdersEventsDispatcher.dispatch(new OrderExpiredEvent(order, deal));
+            this.orderEventsDispatcher.dispatch(
+                new OrderExpiredEvent(order, deal),
+            );
         }
 
         if (isRejectedOrder(order)) {
             this.logger.debug(
                 `Order ${order.clientOrderId || order.orderId} rejected`,
             );
-            OrdersEventsDispatcher.dispatch(
+            this.orderEventsDispatcher.dispatch(
                 new OrderRejectedEvent(order, deal),
             );
         }
@@ -317,6 +322,6 @@ export class OrdersManager extends BaseManager {
 
     private handleOrderEventError(event: CTraderLayerEvent): any {
         const error = event.descriptor as ProtoOAOrderErrorEvent;
-        OrdersEventsDispatcher.dispatch(new OrderErrorEvent(error));
+        this.orderEventsDispatcher.dispatch(new OrderErrorEvent(error));
     }
 }

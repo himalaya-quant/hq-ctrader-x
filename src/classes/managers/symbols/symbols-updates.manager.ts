@@ -49,11 +49,8 @@ export interface ILiveBarsSubscribers {
  * a reconnect, it reads this map and re-subscribes to the server on behalf
  * of the existing consumer Subjects (which are still alive on the consumer side).
  */
-class SubscriptionsManager {
-    static readonly liveBarsSubscriptions = new Map<
-        number,
-        ILiveBarsSubscribers
-    >();
+export class SubscriptionsManager {
+    readonly liveBarsSubscriptions = new Map<number, ILiveBarsSubscribers>();
 }
 
 export class SymbolsUpdatesManager extends BaseManager {
@@ -61,14 +58,13 @@ export class SymbolsUpdatesManager extends BaseManager {
         protected readonly credentials: ICredentials,
         protected readonly connection: CTraderConnection,
         protected readonly logger: ILogger,
+        protected readonly subscriptionsManager: SubscriptionsManager,
     ) {
         super();
 
         // Restore subscriptions that survived a reconnect
-        for (const [
-            symbolId,
-            { subscribers },
-        ] of SubscriptionsManager.liveBarsSubscriptions) {
+        for (const [symbolId, { subscribers }] of this.subscriptionsManager
+            .liveBarsSubscriptions) {
             this.subscribeSpotEvents({ symbolId: +symbolId });
 
             for (const { period } of subscribers) {
@@ -85,7 +81,7 @@ export class SymbolsUpdatesManager extends BaseManager {
         this.connection.on(ProtoOASpotEvent.name, (event) => {
             const symbolId = +event.descriptor.symbolId;
             const symbolSubs =
-                SubscriptionsManager.liveBarsSubscriptions.get(+symbolId);
+                this.subscriptionsManager.liveBarsSubscriptions.get(+symbolId);
             if (!symbolSubs) return;
 
             symbolSubs.subscribers.forEach((sub, i) => {
@@ -119,7 +115,7 @@ export class SymbolsUpdatesManager extends BaseManager {
             opts.period,
         );
 
-        const symbolSubs = SubscriptionsManager.liveBarsSubscriptions.get(
+        const symbolSubs = this.subscriptionsManager.liveBarsSubscriptions.get(
             +opts.symbolId,
         );
         if (!symbolSubs || !symbolSubs.subscribers.length) {
@@ -290,7 +286,7 @@ export class SymbolsUpdatesManager extends BaseManager {
         period: ProtoOATrendbarPeriod | '*',
     ) {
         const symbolSubs =
-            SubscriptionsManager.liveBarsSubscriptions.get(+symbolId);
+            this.subscriptionsManager.liveBarsSubscriptions.get(+symbolId);
         if (!symbolSubs) return;
 
         symbolSubs.subscribers = symbolSubs.subscribers.filter((s) => {
@@ -302,7 +298,7 @@ export class SymbolsUpdatesManager extends BaseManager {
         });
 
         if (symbolSubs.subscribers.length === 0) {
-            SubscriptionsManager.liveBarsSubscriptions.delete(+symbolId);
+            this.subscriptionsManager.liveBarsSubscriptions.delete(+symbolId);
         }
     }
 
@@ -311,10 +307,10 @@ export class SymbolsUpdatesManager extends BaseManager {
         subscriber: ILiveBarsSubscriber,
     ) {
         const existing =
-            SubscriptionsManager.liveBarsSubscriptions.get(+symbolId);
+            this.subscriptionsManager.liveBarsSubscriptions.get(+symbolId);
 
         if (!existing) {
-            SubscriptionsManager.liveBarsSubscriptions.set(+symbolId, {
+            this.subscriptionsManager.liveBarsSubscriptions.set(+symbolId, {
                 symbolId: +symbolId,
                 subscribers: [subscriber],
             });

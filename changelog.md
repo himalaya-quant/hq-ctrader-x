@@ -1,3 +1,9 @@
+# 0.0.24
+
+- Removed globally shared subscriptions managers, enabling multiple bots instances
+  on the same process. Now every client keeps the subscriptions alive even after
+  a reconnection event, and passes the same subscriptions to the newly created managers
+
 # 0.0.23
 
 - Fixed internal subscriptions management and racing conditions when concurrent

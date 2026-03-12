@@ -12,9 +12,15 @@ import { cTraderXError } from './models/ctrader-x-error.model';
 import { ICredentials } from './managers/models/credentials.model';
 import { IConfiguration } from './models/client-configuration.model';
 
-import { OrdersManager } from './managers/orders/orders.manager';
+import {
+    OrdersEventsDispatcher,
+    OrdersManager,
+} from './managers/orders/orders.manager';
 import { SymbolsManager } from './managers/symbols/symbols.manager';
-import { SymbolsUpdatesManager } from './managers/symbols/symbols-updates.manager';
+import {
+    SubscriptionsManager,
+    SymbolsUpdatesManager,
+} from './managers/symbols/symbols-updates.manager';
 import { AuthenticationManager } from './managers/authentication/authentication.manager';
 
 import { ProtoOAClientDisconnectEvent } from '../models/proto/events/ProtoOAClientDisconnectEvent';
@@ -30,9 +36,13 @@ export class cTraderX {
     private connection: CTraderConnection;
 
     private ordersManager: OrdersManager;
+    private readonly ordersEventsDispatcher = new OrdersEventsDispatcher();
+
     private symbolsManager: SymbolsManager;
     private authManager: AuthenticationManager;
+
     private symbolsUpdatesManager: SymbolsUpdatesManager;
+    private readonly subscriptionsManager = new SubscriptionsManager();
 
     private isConnected = false;
     private intentionalDisconnect = false;
@@ -166,6 +176,7 @@ export class cTraderX {
             this.credentials,
             this.connection,
             this.logger,
+            this.ordersEventsDispatcher,
         );
 
         this.symbolsManager = new SymbolsManager(
@@ -178,6 +189,7 @@ export class cTraderX {
             this.credentials,
             this.connection,
             this.logger,
+            this.subscriptionsManager,
         );
     }
 
