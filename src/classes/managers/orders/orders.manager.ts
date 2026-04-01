@@ -17,14 +17,6 @@ import {
     OrderCancelledEvent,
 } from './events/orders.events';
 
-import {
-    isFilledOrder,
-    isExpiredOrder,
-    isAcceptedOrder,
-    isRejectedOrder,
-    isCancelledOrder,
-} from './typeguards/positions-typeguards';
-
 import { ClosePositionError } from './errors/close-position.error';
 import { GetOpenPositionsError } from './errors/get-open-positions.error';
 import { CancelPendingOrderError } from './errors/cancel-pending-order.error';
@@ -32,6 +24,7 @@ import { ModifyPendingOrderError } from './errors/modify-pending-order.error';
 import { GetPositionUnrealizedPnLError } from './errors/get-position-unrealized-pnl.error';
 
 import { ProtoOANewOrderReq } from './proto/messages/ProtoOANewOrderReq';
+import { ProtoOAExecutionType } from './proto/enums/ProtoOAExecutionType';
 import { ProtoOAReconcileReq } from './proto/messages/ProtoOAReconcileReq';
 import { ProtoOAReconcileRes } from './proto/messages/ProtoOAReconcileRes';
 import { ProtoOAAmendOrderReq } from './proto/messages/ProtoOAAmendOrderReq';
@@ -273,50 +266,94 @@ export class OrdersManager extends BaseManager {
     }
 
     private handleOrderExecutionEvent(event: CTraderLayerEvent): any {
-        const { order, deal } = event.descriptor as ProtoOAExecutionEvent;
-        if (isAcceptedOrder(order)) {
-            this.logger.debug(
-                `Order ${order.clientOrderId || order.orderId} accepted`,
-            );
-            this.orderEventsDispatcher.dispatch(
-                new OrderAcceptedEvent(order, deal),
-            );
+        const descriptor = event.descriptor as ProtoOAExecutionEvent;
+        const { executionType, order, deal } = descriptor;
+
+        // These execution types does not concern orders directly. Ignore them
+        switch (executionType) {
+            case ProtoOAExecutionType.SWAP:
+            case ProtoOAExecutionType.DEPOSIT_WITHDRAW:
+            case ProtoOAExecutionType.BONUS_DEPOSIT_WITHDRAW:
+                this.logger.debug(
+                    `Non-order execution event received: ${ProtoOAExecutionType[executionType]}`,
+                );
+                return;
+
+            case ProtoOAExecutionType.ORDER_CANCEL_REJECTED:
+                this.logger.debug(
+                    `Order cancel rejected: ${descriptor.errorCode}`,
+                );
+                // Should we dispatch an event here?
+                return;
         }
 
-        if (isFilledOrder(order)) {
-            this.logger.debug(
-                `Order ${order.clientOrderId || order.orderId} filled`,
+        // From here on, we expect order to be present
+        if (!order) {
+            this.logger.warn(
+                `Received execution event of type ${ProtoOAExecutionType[executionType]} without order. Skipping.`,
             );
-            this.orderEventsDispatcher.dispatch(
-                new OrderFilledEvent(order, deal),
-            );
+            return;
         }
 
-        if (isCancelledOrder(order)) {
-            this.logger.debug(
-                `Order ${order.clientOrderId || order.orderId} cancelled`,
-            );
-            this.orderEventsDispatcher.dispatch(
-                new OrderCancelledEvent(order, deal),
-            );
-        }
+        switch (executionType) {
+            case ProtoOAExecutionType.ORDER_ACCEPTED:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} accepted`,
+                );
+                this.orderEventsDispatcher.dispatch(
+                    new OrderAcceptedEvent(order, deal),
+                );
+                break;
 
-        if (isExpiredOrder(order)) {
-            this.logger.debug(
-                `Order ${order.clientOrderId || order.orderId} expired`,
-            );
-            this.orderEventsDispatcher.dispatch(
-                new OrderExpiredEvent(order, deal),
-            );
-        }
+            case ProtoOAExecutionType.ORDER_PARTIAL_FILL:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} partially filled`,
+                );
+                break;
+            case ProtoOAExecutionType.ORDER_FILLED:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} filled`,
+                );
+                this.orderEventsDispatcher.dispatch(
+                    new OrderFilledEvent(order, deal),
+                );
+                break;
 
-        if (isRejectedOrder(order)) {
-            this.logger.debug(
-                `Order ${order.clientOrderId || order.orderId} rejected`,
-            );
-            this.orderEventsDispatcher.dispatch(
-                new OrderRejectedEvent(order, deal),
-            );
+            case ProtoOAExecutionType.ORDER_CANCELLED:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} cancelled`,
+                );
+                this.orderEventsDispatcher.dispatch(
+                    new OrderCancelledEvent(order, deal),
+                );
+                break;
+
+            case ProtoOAExecutionType.ORDER_EXPIRED:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} expired`,
+                );
+                this.orderEventsDispatcher.dispatch(
+                    new OrderExpiredEvent(order, deal),
+                );
+                break;
+
+            case ProtoOAExecutionType.ORDER_REJECTED:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} rejected`,
+                );
+                this.orderEventsDispatcher.dispatch(
+                    new OrderRejectedEvent(order, deal),
+                );
+                break;
+
+            case ProtoOAExecutionType.ORDER_REPLACED:
+                this.logger.debug(
+                    `Order ${order.clientOrderId || order.orderId} replaced`,
+                );
+                break;
+
+            default:
+                this.logger.warn(`Unhandled execution type: ${executionType}`);
         }
     }
 

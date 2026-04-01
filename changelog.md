@@ -1,3 +1,7 @@
+# 0.0.25
+
+Removed order typeguards. Now the order type is completely inferred by the execution type
+
 # 0.0.24
 
 - Removed globally shared subscriptions managers, enabling multiple bots instances
