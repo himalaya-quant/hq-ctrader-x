@@ -1,3 +1,7 @@
+# 0.0.26
+
+Fixed type inference using typed strings instead of numeric enum value
+
 # 0.0.25
 
 Removed order typeguards. Now the order type is completely inferred by the execution type

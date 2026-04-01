@@ -271,15 +271,19 @@ export class OrdersManager extends BaseManager {
 
         // These execution types does not concern orders directly. Ignore them
         switch (executionType) {
-            case ProtoOAExecutionType.SWAP:
-            case ProtoOAExecutionType.DEPOSIT_WITHDRAW:
-            case ProtoOAExecutionType.BONUS_DEPOSIT_WITHDRAW:
+            case ProtoOAExecutionType[ProtoOAExecutionType.SWAP]:
+            case ProtoOAExecutionType[ProtoOAExecutionType.DEPOSIT_WITHDRAW]:
+            case ProtoOAExecutionType[
+                ProtoOAExecutionType.BONUS_DEPOSIT_WITHDRAW
+            ]:
                 this.logger.debug(
                     `Non-order execution event received: ${ProtoOAExecutionType[executionType]}`,
                 );
                 return;
 
-            case ProtoOAExecutionType.ORDER_CANCEL_REJECTED:
+            case ProtoOAExecutionType[
+                ProtoOAExecutionType.ORDER_CANCEL_REJECTED
+            ]:
                 this.logger.debug(
                     `Order cancel rejected: ${descriptor.errorCode}`,
                 );
@@ -296,7 +300,7 @@ export class OrdersManager extends BaseManager {
         }
 
         switch (executionType) {
-            case ProtoOAExecutionType.ORDER_ACCEPTED:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_ACCEPTED]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} accepted`,
                 );
@@ -305,12 +309,12 @@ export class OrdersManager extends BaseManager {
                 );
                 break;
 
-            case ProtoOAExecutionType.ORDER_PARTIAL_FILL:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_PARTIAL_FILL]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} partially filled`,
                 );
                 break;
-            case ProtoOAExecutionType.ORDER_FILLED:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_FILLED]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} filled`,
                 );
@@ -319,7 +323,7 @@ export class OrdersManager extends BaseManager {
                 );
                 break;
 
-            case ProtoOAExecutionType.ORDER_CANCELLED:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_CANCELLED]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} cancelled`,
                 );
@@ -328,7 +332,7 @@ export class OrdersManager extends BaseManager {
                 );
                 break;
 
-            case ProtoOAExecutionType.ORDER_EXPIRED:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_EXPIRED]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} expired`,
                 );
@@ -337,7 +341,7 @@ export class OrdersManager extends BaseManager {
                 );
                 break;
 
-            case ProtoOAExecutionType.ORDER_REJECTED:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_REJECTED]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} rejected`,
                 );
@@ -346,7 +350,7 @@ export class OrdersManager extends BaseManager {
                 );
                 break;
 
-            case ProtoOAExecutionType.ORDER_REPLACED:
+            case ProtoOAExecutionType[ProtoOAExecutionType.ORDER_REPLACED]:
                 this.logger.debug(
                     `Order ${order.clientOrderId || order.orderId} replaced`,
                 );

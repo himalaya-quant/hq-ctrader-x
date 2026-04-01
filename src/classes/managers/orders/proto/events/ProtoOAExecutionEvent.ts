@@ -21,7 +21,7 @@ export class ProtoOAExecutionEvent extends BaseProto {
     /**
      * Type of the order operation. For example: ACCEPTED, FILLED, etc.
      */
-    executionType: ProtoOAExecutionType;
+    executionType: keyof typeof ProtoOAExecutionType;
 
     /**
      * Reference to the position linked with the execution
