@@ -1,3 +1,8 @@
+# 0.0.29
+
+Introduces `getTraderDeals` on TraderManager, responsible for getting historical
+trader deals.
+
 # 0.0.28
 
 Introduces `modifyPosition` on OrdersManager, responsible for amending an active
