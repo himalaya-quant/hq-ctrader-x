@@ -34,6 +34,8 @@ import { ProtoOAOrderErrorEvent } from './proto/events/ProtoOAOrderErrorEvent';
 import { ProtoOAClosePositionReq } from '../symbols/proto/messages/ProtoOAClosePositionReq';
 import { ProtoOAGetPositionUnrealizedPnLReq } from './proto/messages/ProtoOAGetPositionUnrealizedPnLReq';
 import { ProtoOAGetPositionUnrealizedPnLRes } from './proto/messages/ProtoOAGetPositionUnrealizedPnLRes';
+import { ProtoOAAmendPositionSLTPReq } from './proto/messages/ProtoOAAmendPositionSLTPReq';
+import { ModifyPositionError } from './errors/modify-position.error';
 
 type BaseProto = 'payloadType' | 'ctidTraderAccountId';
 
@@ -157,6 +159,35 @@ export class OrdersManager extends BaseManager {
         }
 
         this.logCallAttemptSuccess(this.modifyPendingOrder);
+    }
+
+    /**
+     * Request for amending StopLoss and TakeProfit of existing position.
+     * Allowed only if the accessToken has "trade" permissions for the trading account.
+     *
+     * @param req ProtoOAAmendPositionSLTPReq request payload
+     */
+    async modifyPosition(req: Omit<ProtoOAAmendPositionSLTPReq, BaseProto>) {
+        this.logCallAttempt(this.modifyPosition);
+        const payload: ProtoOAAmendPositionSLTPReq = {
+            ...req,
+            ctidTraderAccountId: this.credentials.ctidTraderAccountId,
+        };
+
+        try {
+            await this.connection.sendCommand(
+                ProtoOAAmendPositionSLTPReq.name,
+                payload,
+            );
+        } catch (e) {
+            throw this.handleCTraderCallError(
+                e,
+                this.modifyPosition,
+                new ModifyPositionError(e),
+            );
+        }
+
+        this.logCallAttemptSuccess(this.modifyPosition);
     }
 
     /**

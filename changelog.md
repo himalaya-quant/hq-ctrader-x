@@ -1,7 +1,11 @@
+# 0.0.28
+
+Introduces `modifyPosition` on OrdersManager, responsible for amending an active
+position, that's not pending anymore.
+
 # 0.0.27
 
 Introduces TraderManager responsible for getting trader info
-
 
 # 0.0.26
 
