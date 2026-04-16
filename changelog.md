@@ -1,3 +1,8 @@
+# 0.0.27
+
+Introduces TraderManager responsible for getting trader info
+
+
 # 0.0.26
 
 Fixed type inference using typed strings instead of numeric enum value

@@ -25,6 +25,7 @@ import { AuthenticationManager } from './managers/authentication/authentication.
 
 import { ProtoOAClientDisconnectEvent } from '../models/proto/events/ProtoOAClientDisconnectEvent';
 import { ProtoOAAccountDisconnectEvent } from '../models/proto/events/ProtoOAAccountDisconnectEvent';
+import { TraderManager } from './managers/trader/trader.manager';
 
 export class cTraderX {
     private readonly port = 5035;
@@ -38,6 +39,7 @@ export class cTraderX {
     private ordersManager: OrdersManager;
     private readonly ordersEventsDispatcher = new OrdersEventsDispatcher();
 
+    private traderManager: TraderManager;
     private symbolsManager: SymbolsManager;
     private authManager: AuthenticationManager;
 
@@ -71,6 +73,11 @@ export class cTraderX {
         };
 
         this.createConnection();
+    }
+
+    get trader() {
+        this.ensureConnectedOrThrow();
+        return this.traderManager;
     }
 
     get orders() {
@@ -172,6 +179,12 @@ export class cTraderX {
     }
 
     private async initializeSecondaryManagers() {
+        this.traderManager = new TraderManager(
+            this.credentials,
+            this.connection,
+            this.logger,
+        );
+
         this.ordersManager = new OrdersManager(
             this.credentials,
             this.connection,
