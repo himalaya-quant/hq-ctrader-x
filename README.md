@@ -1,3 +1,10 @@
+## ⚠️⚠️ DEPRECATED ⚠️⚠️ 
+### In favour of: https://www.npmjs.com/package/ctrader-x
+A stronger alternative that builds on the same philosophy, but easier to use, 
+more robust, and actively maintained.
+
+---
+
 # @himalaya-quant/ctrader-x
 
 A TypeScript client for the [cTrader Open API](https://help.ctrader.com/open-api/messages). Strongly typed, with a clean abstraction over the underlying ProtoBuffer protocol.
